@@ -28,9 +28,9 @@ The frontend (`frontend/`) and backend (`backend/`) are separate apps. Locally, 
 
 | | |
 |---|---|
-| Frontend (Vercel) | _add after deploying_ |
-| Backend API (Render) | _add after deploying_ |
-| Health check | `<backend-url>/health` |
+| Frontend (Vercel) | https://joineazy-gamma.vercel.app |
+| Backend API (Render) | https://joineazy-backend-xsln.onrender.com |
+| Health check | https://joineazy-backend-xsln.onrender.com/health |
 | Repository | https://github.com/gowthame23/Joineazy_assignment |
 
 Demo accounts are listed in [section 4](#demo-accounts).
