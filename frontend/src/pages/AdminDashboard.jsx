@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
-import { Button, Input, StatCard, ProgressBar, Badge, Spinner, Alert, Modal } from '../components/ui';
+import { Button, Input, StatCard, ProgressBar, Spinner, Alert, Modal } from '../components/ui';
 import {
   Users,
   FolderKanban,
@@ -51,6 +51,7 @@ export function AdminDashboard() {
   const [groupSearchQuery, setGroupSearchQuery] = useState('');
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState('');
+  const [formFieldErrors, setFormFieldErrors] = useState({});
 
   // Delete modal confirmation
   const [deletingAssignment, setDeletingAssignment] = useState(null);
@@ -90,6 +91,8 @@ export function AdminDashboard() {
       groupIds: [],
     });
     setFormError('');
+    setFormFieldErrors({});
+    setGroupSearchQuery('');
     setIsModalOpen(true);
   };
 
@@ -110,6 +113,8 @@ export function AdminDashboard() {
       groupIds: a.groupIds || [],
     });
     setFormError('');
+    setFormFieldErrors({});
+    setGroupSearchQuery('');
     setIsModalOpen(true);
   };
 
@@ -129,22 +134,14 @@ export function AdminDashboard() {
     e.preventDefault();
     setFormError('');
 
-    if (!formData.title.trim()) {
-      setFormError('Assignment title is required.');
-      return;
-    }
-    if (!formData.dueDate) {
-      setFormError('Due date is required.');
-      return;
-    }
-    if (!formData.oneDriveLink.trim()) {
-      setFormError('OneDrive link is required.');
-      return;
-    }
-    if (!formData.assignToAll && formData.groupIds.length === 0) {
-      setFormError('Select at least one group or choose "All students".');
-      return;
-    }
+    const errs = {};
+    if (!formData.title.trim()) errs.title = 'Assignment title is required.';
+    if (!formData.dueDate) errs.dueDate = 'Due date is required.';
+    if (!formData.oneDriveLink.trim()) errs.oneDriveLink = 'OneDrive link is required.';
+    else if (!/^https?:\/\/\S+$/i.test(formData.oneDriveLink.trim())) errs.oneDriveLink = 'Link must start with http:// or https://';
+    if (!formData.assignToAll && formData.groupIds.length === 0) errs.groups = 'Select at least one group or choose "All students".';
+    setFormFieldErrors(errs);
+    if (Object.keys(errs).length > 0) return;
 
     setFormLoading(true);
     try {
@@ -413,24 +410,24 @@ export function AdminDashboard() {
                           <button
                             type="button"
                             onClick={() => navigate(`/assignments/${a.id}`)}
-                            title="View Submissions"
-                            className="p-1.5 rounded hover:bg-canvas text-brand hover:text-brand-dark transition-colors"
+                            title="View Submissions" aria-label={`View submissions for ${a.title}`}
+                            className="inline-flex items-center justify-center min-w-[40px] min-h-[40px] rounded hover:bg-canvas text-brand hover:text-brand-dark transition-colors"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
                             type="button"
                             onClick={() => openEditModal(a)}
-                            title="Edit Assignment"
-                            className="p-1.5 rounded hover:bg-canvas text-text-2 hover:text-text transition-colors"
+                            title="Edit Assignment" aria-label={`Edit ${a.title}`}
+                            className="inline-flex items-center justify-center min-w-[40px] min-h-[40px] rounded hover:bg-canvas text-text-2 hover:text-text transition-colors"
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
                           <button
                             type="button"
                             onClick={() => setDeletingAssignment(a)}
-                            title="Delete Assignment"
-                            className="p-1.5 rounded hover:bg-canvas text-danger hover:opacity-80 transition-colors"
+                            title="Delete Assignment" aria-label={`Delete ${a.title}`}
+                            className="inline-flex items-center justify-center min-w-[40px] min-h-[40px] rounded hover:bg-canvas text-danger hover:opacity-80 transition-colors"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -452,13 +449,14 @@ export function AdminDashboard() {
         title={modalMode === 'create' ? 'Create New Assignment' : 'Edit Assignment'}
         maxWidth="max-w-lg"
       >
-        <form onSubmit={handleFormSubmit} className="space-y-4">
+        <form onSubmit={handleFormSubmit} noValidate className="space-y-4">
           {formError && <Alert variant="danger" message={formError} />}
 
           <Input
             label="Title"
             id="title"
             required
+            error={formFieldErrors.title}
             placeholder="e.g. Milestone 1: Requirements"
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
@@ -471,7 +469,7 @@ export function AdminDashboard() {
             <textarea
               id="description"
               rows={3}
-              className="w-full px-3 py-2 text-sm bg-white border border-line rounded text-text placeholder-text-3 focus:outline-none focus:border-brand focus:ring-3 focus:ring-brand-tint"
+              className="w-full px-3 py-2 text-sm bg-white border border-line rounded text-text placeholder-text-3 focus:outline-none focus:border-brand focus:ring-[3px] focus:ring-brand-tint"
               placeholder="Provide instructions and criteria..."
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -483,6 +481,7 @@ export function AdminDashboard() {
             id="dueDate"
             type="datetime-local"
             required
+            error={formFieldErrors.dueDate}
             value={formData.dueDate}
             onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
           />
@@ -492,6 +491,7 @@ export function AdminDashboard() {
             id="oneDriveLink"
             type="url"
             required
+            error={formFieldErrors.oneDriveLink}
             placeholder="https://onedrive.live.com/..."
             helperText="Where students will upload their team files before confirming."
             value={formData.oneDriveLink}
@@ -529,6 +529,7 @@ export function AdminDashboard() {
           {/* Specific Groups Selector */}
           {!formData.assignToAll && (
             <div className="p-3 bg-canvas border border-line rounded space-y-2">
+              {formFieldErrors.groups && <p className="text-xs text-danger">{formFieldErrors.groups}</p>}
               <div className="relative">
                 <Search className="w-3.5 h-3.5 absolute left-2.5 top-3 text-text-3" />
                 <input

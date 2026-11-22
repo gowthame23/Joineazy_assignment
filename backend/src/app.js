@@ -79,6 +79,15 @@ app.use((err, req, res, next) => {
     return res.status(400).json({ error: 'Malformed JSON payload in request' });
   }
 
+  // Database constraint races (e.g. two simultaneous sign-ups with the same email,
+  // or two requests adding the same student to a group)
+  if (err.code === '23505') {
+    return res.status(409).json({ error: 'That record already exists or was just created by another request' });
+  }
+  if (err.code === '22P02' || err.code === '23503') {
+    return res.status(400).json({ error: 'Invalid reference or value in request' });
+  }
+
   // CORS error
   if (err.message === 'Not allowed by CORS') {
     return res.status(403).json({ error: 'Origin not allowed by CORS' });

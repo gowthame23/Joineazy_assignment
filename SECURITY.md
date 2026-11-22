@@ -28,4 +28,6 @@ This document describes the security architecture and protective safeguards desi
 
 ## 4. Database Safety
 - **SQL Injection Prevention**: All queries use node-postgres parameterised statements (`$1, $2, ...`), preventing unsanitized user inputs from altering SQL logic.
+- **Link Scheme Allowlist**: Assignment `oneDriveLink` values must be `http://` or `https://`. Schemes such as `javascript:`, `data:` and `file:` are rejected, and links render with `rel="noopener noreferrer"`.
+- **Race-Safe State Changes**: Submission transitions are single atomic SQL statements and unique constraints back every "at most one" rule. Constraint violations are mapped to `409`, never leaked as `500`.
 - **UUID Validation**: All route parameters expecting entity identifiers validate the UUIDv4 format using regex before database querying to avoid database-level unhandled exceptions.

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import { Button, Input, Badge, ProgressBar, Spinner, Alert, Modal } from '../components/ui';
-import { Users, ExternalLink, UserPlus, Trash2, CheckCircle2, Clock, Calendar, LogOut } from 'lucide-react';
+import { formatRelativeDueDate } from '../utils/date';
+import { Users, ExternalLink, UserPlus, Trash2, CheckCircle2, Calendar, LogOut } from 'lucide-react';
 
 export function StudentDashboard() {
   const { user } = useAuth();
@@ -134,6 +135,9 @@ export function StudentDashboard() {
     try {
       await api.post(`/api/assignments/${selectedAssignment.id}/submission/request`);
       setModalStep(2);
+      // The server now holds a 'pending' submission: refresh in the background so the card
+      // behind the modal is correct even if the student closes the dialog before step 2.
+      fetchData();
     } catch (err) {
       setModalError(err.message || 'Failed to register submission request.');
     } finally {
@@ -288,7 +292,7 @@ export function StudentDashboard() {
                           <button
                             type="button"
                             onClick={() => handleRemoveMember(m.id, true)}
-                            className="text-xs text-danger hover:underline inline-flex items-center gap-1"
+                            className="text-xs text-danger hover:underline inline-flex items-center gap-1 min-h-[40px] px-2"
                           >
                             <LogOut className="w-3.5 h-3.5" /> Leave
                           </button>
@@ -296,7 +300,7 @@ export function StudentDashboard() {
                           <button
                             type="button"
                             onClick={() => handleRemoveMember(m.id, false)}
-                            className="text-xs text-danger hover:underline inline-flex items-center gap-1"
+                            className="text-xs text-danger hover:underline inline-flex items-center gap-1 min-h-[40px] px-2"
                           >
                             <Trash2 className="w-3.5 h-3.5" /> Remove
                           </button>
@@ -384,9 +388,12 @@ export function StudentDashboard() {
                       {assignment.description || 'No description provided.'}
                     </p>
 
-                    <div className="flex items-center gap-1.5 text-xs text-text-3 pt-1">
+                    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-text-2 pt-1">
                       <Calendar className="w-3.5 h-3.5 text-text-3" />
                       <span>Due: {dueDate.toLocaleDateString()} {dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span className={`font-medium ${isOverdue && subStatus !== 'confirmed' ? 'text-danger' : 'text-text'}`}>
+                        ({formatRelativeDueDate(assignment.dueDate)})
+                      </span>
                     </div>
                   </div>
 
@@ -396,9 +403,9 @@ export function StudentDashboard() {
                       href={assignment.oneDriveLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand hover:text-brand-dark"
+                      className="inline-flex items-center justify-center gap-1.5 w-full h-10 text-sm font-medium rounded border border-line bg-white text-brand hover:bg-brand-tint focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 transition-colors"
                     >
-                      <ExternalLink className="w-3.5 h-3.5" /> Open OneDrive Submission Folder
+                      <ExternalLink className="w-4 h-4" /> Open OneDrive
                     </a>
 
                     {/* Submission Action */}
@@ -429,7 +436,7 @@ export function StudentDashboard() {
                             <button
                               type="button"
                               onClick={() => handleCancelPending(assignment.id)}
-                              className="text-xs text-danger hover:underline"
+                              className="text-xs text-danger hover:underline min-h-[40px] px-2"
                             >
                               Cancel pending request
                             </button>

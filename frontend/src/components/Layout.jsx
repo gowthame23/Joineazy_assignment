@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button, WakeBanner } from './ui';
-import { LogOut, BookOpen, User } from 'lucide-react';
+import { LogOut, User } from 'lucide-react';
 
 export function Layout({ children }) {
   const { user, logout } = useAuth();
@@ -28,7 +28,7 @@ export function Layout({ children }) {
               <span className="font-semibold text-base tracking-tight leading-none text-white">
                 Joineazy
               </span>
-              <span className="text-[11px] text-text-3 font-medium">Assignment Management</span>
+              <span className="text-[11px] text-white/70 font-medium">Assignment Management</span>
             </div>
           </Link>
 
@@ -36,14 +36,14 @@ export function Layout({ children }) {
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="hidden sm:flex flex-col text-right">
                 <span className="text-sm font-medium text-white">{user.name}</span>
-                <span className="text-xs text-text-3 capitalize">
+                <span className="text-xs text-white/70 capitalize">
                   {user.role === 'admin' ? 'Professor' : 'Student'}
                   {user.studentId ? ` (${user.studentId})` : ''}
                 </span>
               </div>
 
               <div className="sm:hidden flex items-center gap-1.5 bg-ink-soft px-2.5 py-1 rounded text-xs">
-                <User className="w-3.5 h-3.5 text-text-3" />
+                <User className="w-3.5 h-3.5 text-white/70" />
                 <span className="font-medium text-white capitalize">{user.role}</span>
               </div>
 
@@ -68,7 +68,7 @@ export function Layout({ children }) {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-line bg-surface py-4 text-center text-xs text-text-3">
+      <footer className="border-t border-line bg-surface py-4 text-center text-xs text-white/70">
         <div className="max-w-[1200px] mx-auto px-4">
           Joineazy Assignment Management System &copy; {new Date().getFullYear()}
         </div>

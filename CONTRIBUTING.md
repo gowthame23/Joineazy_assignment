@@ -24,8 +24,10 @@ Thank you for contributing to the Joineazy Student, Group & Assignment Managemen
    Before pushing, verify:
    ```bash
    # In frontend:
+   npm test
    npm run build
 
    # In backend:
-   npm run test:smoke
+   npm test
+   npm run test:smoke   # needs the API running and seeded
    ```

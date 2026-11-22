@@ -15,68 +15,68 @@ const addMemberSchema = z.object({
   identifier: z.string().trim().min(1, 'Student email or ID is required'),
 });
 
-// Helper to fetch full group details including members and progress
-export async function getGroupDetails(groupId) {
-  const groupRes = await query(
-    'SELECT id, name, leader_id AS "leaderId", created_at FROM groups WHERE id = $1',
-    [groupId]
-  );
-  if (groupRes.rows.length === 0) return null;
-  const group = groupRes.rows[0];
+// Helper to fetch full details (members + progress) for one or many groups.
+// Uses set-based queries so listing N groups costs 2 queries, not 3N.
+// An assignment targets a group when assign_to_all = true OR a row exists in
+// assignment_groups; confirmed counts only include assignments that still target the group.
+export async function getGroupsDetails(groupIds) {
+  if (groupIds.length === 0) return [];
 
-  // Fetch members
+  const groupsRes = await query(
+    `SELECT g.id, g.name, g.leader_id AS "leaderId",
+            (SELECT COUNT(*) FROM assignments a
+              WHERE a.assign_to_all
+                 OR EXISTS (SELECT 1 FROM assignment_groups ag
+                             WHERE ag.assignment_id = a.id AND ag.group_id = g.id))::int AS total,
+            (SELECT COUNT(*) FROM submissions s
+               JOIN assignments a ON a.id = s.assignment_id
+              WHERE s.group_id = g.id AND s.status = 'confirmed'
+                AND (a.assign_to_all
+                     OR EXISTS (SELECT 1 FROM assignment_groups ag
+                                 WHERE ag.assignment_id = a.id AND ag.group_id = g.id)))::int AS confirmed
+       FROM groups g
+      WHERE g.id = ANY($1::uuid[])
+      ORDER BY g.name ASC`,
+    [groupIds]
+  );
+
   const membersRes = await query(
-    `SELECT u.id, u.name, u.email, u.student_id AS "studentId", gm.joined_at
-     FROM group_members gm
-     JOIN users u ON gm.user_id = u.id
-     WHERE gm.group_id = $1
-     ORDER BY gm.joined_at ASC`,
-    [groupId]
+    `SELECT gm.group_id, u.id, u.name, u.email, u.student_id AS "studentId", gm.joined_at
+       FROM group_members gm
+       JOIN users u ON gm.user_id = u.id
+      WHERE gm.group_id = ANY($1::uuid[])
+      ORDER BY gm.joined_at ASC`,
+    [groupIds]
   );
 
-  // Calculate progress: assignments targeting this group
-  // An assignment targets a group if assign_to_all = true OR exists in assignment_groups
-  const totalAssignedRes = await query(
-    `SELECT COUNT(DISTINCT a.id)::int AS total
-     FROM assignments a
-     LEFT JOIN assignment_groups ag ON a.id = ag.assignment_id
-     WHERE a.assign_to_all = true OR ag.group_id = $1`,
-    [groupId]
-  );
-  const totalAssigned = totalAssignedRes.rows[0]?.total || 0;
-
-  // Confirmed submissions for assignments that actually target this group
-  const confirmedRes = await query(
-    `SELECT COUNT(DISTINCT s.assignment_id)::int AS confirmed
-     FROM submissions s
-     JOIN assignments a ON s.assignment_id = a.id
-     LEFT JOIN assignment_groups ag ON a.id = ag.assignment_id
-     WHERE s.group_id = $1
-       AND s.status = 'confirmed'
-       AND (a.assign_to_all = true OR ag.group_id = $1)`,
-    [groupId]
-  );
-  const confirmedCount = confirmedRes.rows[0]?.confirmed || 0;
-
-  const percent = totalAssigned > 0 ? Math.round((confirmedCount / totalAssigned) * 100) : 0;
-
-  return {
-    id: group.id,
-    name: group.name,
-    leaderId: group.leaderId,
-    members: membersRes.rows.map(m => ({
+  const membersByGroup = new Map();
+  for (const m of membersRes.rows) {
+    if (!membersByGroup.has(m.group_id)) membersByGroup.set(m.group_id, []);
+    membersByGroup.get(m.group_id).push({
       id: m.id,
       name: m.name,
       email: m.email,
       studentId: m.studentId,
       joinedAt: m.joined_at,
-    })),
+    });
+  }
+
+  return groupsRes.rows.map((g) => ({
+    id: g.id,
+    name: g.name,
+    leaderId: g.leaderId,
+    members: membersByGroup.get(g.id) || [],
     progress: {
-      total: totalAssigned,
-      confirmed: confirmedCount,
-      percent,
+      total: g.total,
+      confirmed: g.confirmed,
+      percent: g.total > 0 ? Math.round((g.confirmed / g.total) * 100) : 0,
     },
-  };
+  }));
+}
+
+export async function getGroupDetails(groupId) {
+  const [group] = await getGroupsDetails([groupId]);
+  return group || null;
 }
 
 // POST /api/groups - Student creates a new group
@@ -299,10 +299,8 @@ router.get(
   requireAuth,
   requireRole('admin'),
   asyncHandler(async (req, res) => {
-    const groupsRes = await query('SELECT id FROM groups ORDER BY name ASC');
-    const groups = await Promise.all(
-      groupsRes.rows.map((row) => getGroupDetails(row.id))
-    );
+    const groupsRes = await query('SELECT id FROM groups');
+    const groups = await getGroupsDetails(groupsRes.rows.map((row) => row.id));
     return res.status(200).json({ groups });
   })
 );

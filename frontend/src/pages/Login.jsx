@@ -8,6 +8,7 @@ export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
 
   const { login } = useAuth();
@@ -17,10 +18,12 @@ export function Login() {
     e.preventDefault();
     setError('');
 
-    if (!email || !password) {
-      setError('Please fill in both email and password.');
-      return;
-    }
+    const errs = {};
+    if (!email.trim()) errs.email = 'Email address is required.';
+    else if (!/^\S+@\S+\.\S+$/.test(email.trim())) errs.email = 'Enter a valid email address.';
+    if (!password) errs.password = 'Password is required.';
+    setFieldErrors(errs);
+    if (Object.keys(errs).length > 0) return;
 
     setIsLoading(true);
     try {
@@ -38,6 +41,7 @@ export function Login() {
     setEmail(demoEmail);
     setPassword('password123');
     setError('');
+    setFieldErrors({});
   };
 
   return (
@@ -58,13 +62,13 @@ export function Login() {
         <div className="bg-surface py-8 px-6 sm:px-10 rounded border border-line shadow-subtle">
           {error && <Alert variant="danger" message={error} className="mb-5" />}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} noValidate className="space-y-4">
             <Input
               label="Email address"
               id="email"
               type="email"
               autoComplete="email"
-              required
+              error={fieldErrors.email}
               placeholder="name@joineazy.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -75,7 +79,7 @@ export function Login() {
               id="password"
               type="password"
               autoComplete="current-password"
-              required
+              error={fieldErrors.password}
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

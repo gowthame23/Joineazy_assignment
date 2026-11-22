@@ -7,9 +7,10 @@ A role-based, full-stack web application that enables students to form collabora
 ## 1. Live Deployment & Repository Links
 
 - **Repository**: [https://github.com/gowthame23/Joineazy_assignment](https://github.com/gowthame23/Joineazy_assignment)
-- **Frontend Live Demo**: *Configured for Vercel deployment (`frontend/vercel.json` included)*
-- **Backend API Live**: *Configured for Render deployment (`backend/render.yaml` included)*
-- **API Health Check**: `https://<render-backend-url>/health` (or `http://localhost:4000/health`)
+- **Frontend Live Demo**: *add the Vercel URL here after deploying (see [Section 11](#11-deployment-guide-neon--render--vercel))*
+- **Backend API Live**: *add the Render URL here after deploying (`render.yaml` and `frontend/vercel.json` are included)*
+- **API Health Check**: `https://<render-backend-url>/health` (or `http://localhost:4000/health` locally)
+- **Detailed docs**: [API.md](API.md) (every endpoint), [ARCHITECTURE.md](ARCHITECTURE.md) (design records), [SECURITY.md](SECURITY.md)
 
 ---
 
@@ -90,10 +91,17 @@ A role-based, full-stack web application that enables students to form collabora
    - **Backend API**: [http://localhost:4000](http://localhost:4000)
    - **Health Check**: [http://localhost:4000/health](http://localhost:4000/health)
 
-4. *(Optional)* Seed initial sample data inside the container:
+4. Seed the demo data (6 students, 3 groups, 4 assignments, a few confirmations). The tables themselves are created automatically when the backend boots:
    ```bash
    docker compose exec backend npm run seed
    ```
+
+5. Stop everything (data is kept in the `postgres_data` volume; add `-v` to wipe it):
+   ```bash
+   docker compose down
+   ```
+
+> This Docker setup has been built and run end to end: all three containers start, the database reports healthy before the backend starts, the backend runs as a non-root user, and the smoke test passes against the running containers.
 
 ---
 
@@ -195,9 +203,56 @@ Base URL: `/api` (Public health check at root: `GET /health`)
 
 ---
 
+The complete reference with every request and response body is in [API.md](API.md).
+
 ### Key API Request & Response Examples
 
-#### 1. Two-Step Submission Verification Workflow
+#### 1. Register and Log In
+
+```http
+POST /api/auth/register
+Content-Type: application/json
+
+{ "name": "Jane Doe", "email": "jane@joineazy.com", "password": "password123", "studentId": "STU1099" }
+```
+Response `201`:
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": { "id": "e6a1005b-42fa-4509-9ec6-8d629a8a7df0", "name": "Jane Doe", "email": "jane@joineazy.com", "studentId": "STU1099", "role": "student" }
+}
+```
+Registering as a professor needs `"role": "admin"` and `"adminCode"` equal to the server's `ADMIN_INVITE_CODE`, otherwise `403`. `POST /api/auth/login` takes `{ email, password }` and returns the same shape; a wrong email and a wrong password return the same `401` message.
+
+#### 2. Create a Group and Add a Member
+
+```http
+POST /api/groups
+Authorization: Bearer <STUDENT_TOKEN>
+
+{ "name": "Team Delta" }
+```
+Response `201`:
+```json
+{
+  "group": {
+    "id": "b8109bf1-4475-4fc1-a95d-dbca1356f6f9",
+    "name": "Team Delta",
+    "leaderId": "e6a1005b-42fa-4509-9ec6-8d629a8a7df0",
+    "members": [ { "id": "e6a1005b-42fa-4509-9ec6-8d629a8a7df0", "name": "Jane Doe", "email": "jane@joineazy.com", "studentId": "STU1099" } ],
+    "progress": { "total": 3, "confirmed": 0, "percent": 0 }
+  }
+}
+```
+```http
+POST /api/groups/me/members
+Authorization: Bearer <LEADER_TOKEN>
+
+{ "identifier": "STU1002" }
+```
+`identifier` is a student email (case-insensitive) or Student ID. Returns `201` with the updated group; `404` if no such student, `409` if that student is already in a group, `403` if the caller is not the leader.
+
+#### 3. Two-Step Submission Verification Workflow
 
 **Step 1: Initiation**
 ```http
@@ -312,11 +367,11 @@ flowchart LR
     end
 
     subgraph Hosting ["Vercel"]
-        ReactApp -->|HTTP Fetch / JWT Bearer| ExpressAPI
+        ReactApp -->|"HTTP fetch with JWT Bearer"| ExpressAPI
     end
 
     subgraph BackendHost ["Render (Docker)"]
-        ExpressAPI["Express API Server (Node 20)"]
+        ExpressAPI["Express API Server (Node 22)"]
         subgraph Pipeline ["Middleware Pipeline"]
             Helmet["Helmet & CORS"] --> Auth["JWT Auth & Role Check"]
             Auth --> Zod["Zod Validation"]
@@ -325,7 +380,7 @@ flowchart LR
     end
 
     subgraph Database ["Neon Serverless"]
-        Route -->|node-postgres (Raw SQL)| Postgres[("PostgreSQL 16")]
+        Route -->|"node-postgres, raw SQL"| Postgres[("PostgreSQL 16")]
     end
 ```
 
@@ -336,6 +391,24 @@ flowchart LR
 4. **Zod Validation**: Request bodies and parameters are parsed with strict Zod schemas; malformed requests fail fast with status 400.
 5. **Database Execution**: Parameterised raw SQL queries protect against SQL injection and maintain high query performance without ORM abstraction overhead.
 
+### How the Two-Step Confirmation Flows:
+```mermaid
+sequenceDiagram
+    participant S as Student (React)
+    participant API as Express API
+    participant DB as PostgreSQL
+    S->>API: POST /submission/request (JWT)
+    API->>DB: INSERT ... ON CONFLICT DO NOTHING (status = pending)
+    API-->>S: 200 pending
+    S->>API: POST /submission/confirm (JWT)
+    API->>DB: UPDATE ... WHERE status = 'pending'
+    alt a pending row was updated
+        API-->>S: 200 confirmed (confirmed_by, confirmed_at recorded)
+    else no pending row (step 1 skipped, or already confirmed)
+        API-->>S: 409 Conflict
+    end
+```
+
 ---
 
 ## 9. Key Design and Deployment Decisions
@@ -345,26 +418,73 @@ flowchart LR
 3. **Raw SQL with Parameterised Queries**: Avoids ORM synchronization issues, cold-start query generator latency, and ensures total transparency of SQL queries.
 4. **Idempotent Boot Migrations**: Database tables and extensions are created on every server startup using `CREATE TABLE IF NOT EXISTS` and `CREATE EXTENSION IF NOT EXISTS`, eliminating manual migration steps on new deployments.
 5. **Free-Tier Cold Start Handling**: A custom event listener in `api/client.js` detects when an API request takes longer than 3 seconds (Render free-tier spin-up) and renders an accessible `WakeBanner` informing the user.
-6. **Zero-Emoji Academic-Professional Design System**: Strict adherence to restrained corporate typography and flat solid colour tokens (`ink`, `brand`, `line`, `surface`, `canvas`) with no gimmicks, blur, or rainbow gradients.
+6. **One Group per Student**: `group_members.user_id` is `UNIQUE`, so the rule holds even under simultaneous requests. A duplicate insert surfaces as a clean `409`, never a `500`.
+7. **Atomic State Transitions**: `request` uses `INSERT ... ON CONFLICT DO NOTHING`, and `confirm` and `cancel` use `UPDATE/DELETE ... WHERE status = 'pending'`. Double clicks and parallel requests cannot skip step 1, double-confirm, or undo a confirmed submission.
+8. **Admin Invite Code**: Professor accounts cannot be self-registered without the server-side `ADMIN_INVITE_CODE`, so students cannot grant themselves admin rights.
+9. **Link Safety**: OneDrive links must be `http://` or `https://`. This blocks `javascript:` and `data:` URLs that would run script when a student clicks the link. Links open with `rel="noopener noreferrer"`.
+10. **Set-Based Queries**: Dashboards and analytics use a handful of aggregate SQL statements (shared in `backend/src/db/queries.js`), not one query per row, so they stay fast as data grows.
+11. **Why Neon, Render and Vercel**: all three have free tiers with no expiry. Neon provides serverless PostgreSQL, Render runs the backend Docker image directly, and Vercel serves the static React build from a CDN with an SPA rewrite.
+12. **Keep-Alive Strategy**: Render's free tier sleeps after about 15 minutes of inactivity. An uptime monitor pinging `/health` every 5 minutes keeps it awake. If it still sleeps, the frontend shows a "Waking up the server" banner after 3 seconds.
+13. **Zero-Emoji Academic-Professional Design System**: Strict adherence to restrained corporate typography and flat solid colour tokens (`ink`, `brand`, `line`, `surface`, `canvas`) with no gimmicks, blur, or rainbow gradients.
 
 ---
 
-## 10. Running the End-to-End Smoke Test
+## 10. Running the Tests
 
-The repository includes an automated integration test script (`backend/scripts/smoke-test.js`) verifying all critical endpoints:
-
+**Unit tests** (no database needed):
 ```bash
-# Ensure the backend server is running on http://localhost:4000
-cd backend
-npm run test:smoke
+cd backend && npm test      # HttpError, async handler, role guard, Zod and UUID validation, date helpers
+cd frontend && npm test     # date and deadline helpers
 ```
 
-The test runner automatically verifies:
+**End-to-end smoke test** (needs the backend running and seeded):
+```bash
+cd backend
+npm run seed
+npm start                   # in one terminal, on http://localhost:4000
+npm run test:smoke          # in another (set API_URL to point elsewhere)
+```
+
+The smoke test verifies:
 1. Health check `/health`
-2. Security safeguards: Admin registration rejection without secret invite code
-3. Seed accounts login
-4. Fresh student account registration
-5. Group creation and member invitation by Student ID
-6. Assignment creation with targeted group assignment
-7. Two-step submission verification (`request` $\rightarrow$ `confirm` $\rightarrow$ attempt duplicate rejection)
-8. Admin tracking breakdown and analytics accuracy
+2. Security safeguards: admin registration is rejected without the invite code
+3. Seed accounts can log in
+4. Fresh student registration and `/auth/me`
+5. Group creation and adding a member by Student ID
+6. Assignment creation with group targeting, and the student only seeing what targets them
+7. Two-step verification: confirm before request is rejected, then `request`, then `confirm`, then a repeat is rejected
+8. Admin tracking breakdown and analytics
+9. Hardening: `javascript:`, `data:` and `file:` links are rejected, and five simultaneous duplicate sign-ups give one `201` and no `500`
+
+CI (`.github/workflows/ci.yml`) runs the syntax check and unit tests for the backend, and the unit tests and production build for the frontend, on every push and pull request to `main`.
+
+---
+
+## 11. Deployment Guide (Neon + Render + Vercel)
+
+1. **Database (Neon)**: create a project and copy the connection string (it ends in `?sslmode=require`). Tables are created automatically on the backend's first boot; there is nothing to run by hand.
+2. **Backend (Render)**: *New > Blueprint* using this repo (it reads `render.yaml`), or *New > Web Service* with root directory `backend` and runtime Docker. Set the environment variables:
+   - `DATABASE_URL`: the Neon connection string
+   - `JWT_SECRET`: a long random string (the blueprint can generate one)
+   - `ADMIN_INVITE_CODE`: the passphrase professors will use to register
+   - `CORS_ORIGIN`: the Vercel URL, with no trailing slash (comma-separate several origins if needed)
+   - `NODE_ENV=production`
+   - Health check path: `/health`
+3. **Frontend (Vercel)**: import the repo, set the root directory to `frontend`, framework Vite, and the environment variable `VITE_API_URL` to the Render URL. `frontend/vercel.json` rewrites every route to `index.html` so deep links like `/assignments/<id>` work. Because `VITE_API_URL` is baked in at build time, redeploy the frontend if the backend URL changes.
+4. **Keep-alive**: create a free UptimeRobot (or cron-job.org) HTTP monitor on `https://<render-url>/health` every 5 minutes.
+5. **Demo data**: run the seed once against Neon from your machine:
+   ```bash
+   cd backend
+   DATABASE_URL="<neon connection string>" npm run seed
+   ```
+6. Put the live frontend and API URLs into Section 1 of this README.
+
+---
+
+## 12. Known Limitations and Future Work
+
+- Tokens are stateless JWTs valid for 7 days. There is no server-side revocation, so a deleted user's token stays valid until it expires (`/auth/me` returns `404` for them).
+- Groups are created by students and capped at one per student; there is no invitation or accept flow, the leader adds a member directly.
+- Submissions are confirmation records only. The app never reads the OneDrive link, so it cannot verify that files were actually uploaded.
+- There is no email or notification system, and no password reset.
+- The Render free tier cold-starts; the wake banner and keep-alive monitor reduce, but cannot remove, that delay.

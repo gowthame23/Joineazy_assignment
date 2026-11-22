@@ -1,5 +1,4 @@
 import jwt from 'jsonwebtoken';
-import { HttpError } from '../utils/http.js';
 
 export const requireAuth = (req, res, next) => {
   const authHeader = req.headers.authorization;

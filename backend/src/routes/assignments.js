@@ -1,6 +1,7 @@
 import express from 'express';
 import { z } from 'zod';
 import { query, pool } from '../db/pool.js';
+import { ASSIGNMENT_STATS_SQL } from '../db/queries.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { validateBody, validateUuidParam } from '../middleware/validate.js';
 import { asyncHandler } from '../utils/http.js';
@@ -13,9 +14,17 @@ const assignmentSchema = z.object({
   dueDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: 'Invalid due date format',
   }),
-  oneDriveLink: z.string().trim().url('Invalid OneDrive URL'),
+  // Only http/https links are allowed: blocks javascript:, data:, file: etc.
+  oneDriveLink: z
+    .string()
+    .trim()
+    .max(2048, 'OneDrive URL is too long')
+    .url('Invalid OneDrive URL')
+    .refine((val) => /^https?:\/\//i.test(val), {
+      message: 'OneDrive URL must start with http:// or https://',
+    }),
   assignToAll: z.boolean().default(true),
-  groupIds: z.array(z.string().uuid()).default([]),
+  groupIds: z.array(z.string().uuid()).max(500, 'Too many groups selected').default([]),
 });
 
 // Helper: check if an assignment targets a specific group
@@ -38,58 +47,8 @@ router.get(
     const { role, id: userId } = req.user;
 
     if (role === 'admin') {
-      // Admin view
-      const assignmentsRes = await query(
-        `SELECT id, title, description, due_date AS "dueDate", onedrive_link AS "oneDriveLink",
-                assign_to_all AS "assignToAll", created_by AS "createdBy",
-                created_at AS "createdAt", updated_at AS "updatedAt"
-         FROM assignments
-         ORDER BY due_date ASC`
-      );
-
-      // Get targeted and confirmed counts for each assignment
-      const allGroupsRes = await query('SELECT COUNT(*)::int AS count FROM groups');
-      const totalGroupsInSystem = allGroupsRes.rows[0]?.count || 0;
-
-      const results = [];
-      for (const a of assignmentsRes.rows) {
-        let targetedCount = 0;
-        let targetedGroupIds = [];
-
-        if (a.assignToAll) {
-          targetedCount = totalGroupsInSystem;
-          const gRes = await query('SELECT id FROM groups');
-          targetedGroupIds = gRes.rows.map(r => r.id);
-        } else {
-          const gRes = await query(
-            'SELECT group_id FROM assignment_groups WHERE assignment_id = $1',
-            [a.id]
-          );
-          targetedCount = gRes.rows.length;
-          targetedGroupIds = gRes.rows.map(r => r.group_id);
-        }
-
-        // Confirmed submissions from targeted groups
-        let confirmedCount = 0;
-        if (targetedGroupIds.length > 0) {
-          const confRes = await query(
-            `SELECT COUNT(*)::int AS count
-             FROM submissions
-             WHERE assignment_id = $1 AND status = 'confirmed' AND group_id = ANY($2::uuid[])`,
-            [a.id, targetedGroupIds]
-          );
-          confirmedCount = confRes.rows[0]?.count || 0;
-        }
-
-        results.push({
-          ...a,
-          targeted: targetedCount,
-          confirmed: confirmedCount,
-          groupIds: a.assignToAll ? [] : targetedGroupIds,
-        });
-      }
-
-      return res.status(200).json({ assignments: results });
+      const result = await query(ASSIGNMENT_STATS_SQL);
+      return res.status(200).json({ assignments: result.rows });
     }
 
     // Student view
@@ -97,76 +56,40 @@ router.get(
       'SELECT group_id FROM group_members WHERE user_id = $1',
       [userId]
     );
-
     const hasGroup = memberRes.rows.length > 0;
     const groupId = hasGroup ? memberRes.rows[0].group_id : null;
 
-    let assignmentsQuery = '';
-    let queryParams = [];
-
-    if (hasGroup) {
-      assignmentsQuery = `
-        SELECT DISTINCT a.id, a.title, a.description, a.due_date AS "dueDate",
-               a.onedrive_link AS "oneDriveLink", a.assign_to_all AS "assignToAll",
-               a.created_at AS "createdAt"
-        FROM assignments a
-        LEFT JOIN assignment_groups ag ON a.id = ag.assignment_id
-        WHERE a.assign_to_all = true OR ag.group_id = $1
-        ORDER BY a.due_date ASC
-      `;
-      queryParams = [groupId];
-    } else {
-      assignmentsQuery = `
-        SELECT a.id, a.title, a.description, a.due_date AS "dueDate",
-               a.onedrive_link AS "oneDriveLink", a.assign_to_all AS "assignToAll",
-               a.created_at AS "createdAt"
-        FROM assignments a
+    // One query: assignments that target the student's group (or everyone),
+    // joined with that group's submission row. A student without a group
+    // (groupId = NULL) only matches "assign to all" and never matches a submission.
+    const result = await query(
+      `SELECT a.id, a.title, a.description, a.due_date AS "dueDate",
+              a.onedrive_link AS "oneDriveLink", a.assign_to_all AS "assignToAll",
+              a.created_at AS "createdAt",
+              s.status AS sub_status, s.confirmed_at AS sub_confirmed_at,
+              u.name AS sub_confirmed_by
+         FROM assignments a
+         LEFT JOIN submissions s ON s.assignment_id = a.id AND s.group_id = $1::uuid
+         LEFT JOIN users u ON u.id = s.confirmed_by
         WHERE a.assign_to_all = true
-        ORDER BY a.due_date ASC
-      `;
-      queryParams = [];
-    }
+           OR EXISTS (SELECT 1 FROM assignment_groups ag
+                       WHERE ag.assignment_id = a.id AND ag.group_id = $1::uuid)
+        ORDER BY a.due_date ASC`,
+      [groupId]
+    );
 
-    const assignmentsRes = await query(assignmentsQuery, queryParams);
-
-    // Fetch submission status for student's group
-    const assignmentsWithSubmissions = [];
-    for (const a of assignmentsRes.rows) {
-      let submission = {
-        status: 'none',
-        confirmedAt: null,
-        confirmedBy: null,
-      };
-
-      if (hasGroup) {
-        const subRes = await query(
-          `SELECT s.status, s.confirmed_at, u.name AS confirmed_by_name
-           FROM submissions s
-           LEFT JOIN users u ON s.confirmed_by = u.id
-           WHERE s.assignment_id = $1 AND s.group_id = $2`,
-          [a.id, groupId]
-        );
-
-        if (subRes.rows.length > 0) {
-          const row = subRes.rows[0];
-          submission = {
-            status: row.status,
-            confirmedAt: row.confirmed_at,
-            confirmedBy: row.confirmed_by_name,
-          };
-        }
-      }
-
-      assignmentsWithSubmissions.push({
+    const assignments = result.rows.map(
+      ({ sub_status, sub_confirmed_at, sub_confirmed_by, ...a }) => ({
         ...a,
-        submission,
-      });
-    }
+        submission: {
+          status: sub_status || 'none',
+          confirmedAt: sub_confirmed_at || null,
+          confirmedBy: sub_confirmed_by || null,
+        },
+      })
+    );
 
-    return res.status(200).json({
-      hasGroup,
-      assignments: assignmentsWithSubmissions,
-    });
+    return res.status(200).json({ hasGroup, assignments });
   })
 );
 
@@ -338,27 +261,22 @@ router.post(
       return res.status(404).json({ error: 'Assignment not found or not assigned to your group' });
     }
 
-    // Check existing submission
-    const existing = await query(
+    // Atomic create-or-keep: a concurrent double click can never produce a 500
+    // (unique violation) and can never downgrade an already confirmed submission.
+    await query(
+      `INSERT INTO submissions (assignment_id, group_id, status, requested_by, requested_at)
+       VALUES ($1, $2, 'pending', $3, CURRENT_TIMESTAMP)
+       ON CONFLICT (assignment_id, group_id) DO NOTHING`,
+      [assignmentId, groupId, userId]
+    );
+
+    const current = await query(
       'SELECT status FROM submissions WHERE assignment_id = $1 AND group_id = $2',
       [assignmentId, groupId]
     );
-
-    if (existing.rows.length > 0) {
-      const currentStatus = existing.rows[0].status;
-      if (currentStatus === 'confirmed') {
-        return res.status(409).json({ error: 'Assignment submission has already been confirmed' });
-      }
-      // If already pending, return current pending status
-      return res.status(200).json({ submission: { status: 'pending' } });
+    if (current.rows[0]?.status === 'confirmed') {
+      return res.status(409).json({ error: 'Assignment submission has already been confirmed' });
     }
-
-    // Insert pending submission
-    await query(
-      `INSERT INTO submissions (assignment_id, group_id, status, requested_by, requested_at)
-       VALUES ($1, $2, 'pending', $3, CURRENT_TIMESTAMP)`,
-      [assignmentId, groupId, userId]
-    );
 
     return res.status(200).json({ submission: { status: 'pending' } });
   })
@@ -390,26 +308,21 @@ router.post(
       return res.status(404).json({ error: 'Assignment not found or not assigned to your group' });
     }
 
-    // Enforce step order: must be currently in 'pending' status
-    const existing = await query(
-      'SELECT status FROM submissions WHERE assignment_id = $1 AND group_id = $2',
-      [assignmentId, groupId]
+    // Enforce step order atomically: the UPDATE only matches a 'pending' row, so
+    // two simultaneous confirms cannot both succeed and step 2 can never skip step 1.
+    const updateRes = await query(
+      `UPDATE submissions
+       SET status = 'confirmed', confirmed_by = $1, confirmed_at = CURRENT_TIMESTAMP
+       WHERE assignment_id = $2 AND group_id = $3 AND status = 'pending'
+       RETURNING status, confirmed_at AS "confirmedAt"`,
+      [userId, assignmentId, groupId]
     );
 
-    if (existing.rows.length === 0 || existing.rows[0].status !== 'pending') {
+    if (updateRes.rows.length === 0) {
       return res.status(409).json({
         error: 'Submission must be requested (pending) before it can be confirmed',
       });
     }
-
-    // Update to confirmed
-    const updateRes = await query(
-      `UPDATE submissions
-       SET status = 'confirmed', confirmed_by = $1, confirmed_at = CURRENT_TIMESTAMP
-       WHERE assignment_id = $2 AND group_id = $3
-       RETURNING status, confirmed_at AS "confirmedAt"`,
-      [userId, assignmentId, groupId]
-    );
 
     return res.status(200).json({
       submission: {
@@ -439,19 +352,17 @@ router.delete(
     }
     const groupId = memberRes.rows[0].group_id;
 
-    const existing = await query(
-      'SELECT status FROM submissions WHERE assignment_id = $1 AND group_id = $2',
+    // Only a pending row can be deleted; a confirmed submission is never undone.
+    const deleted = await query(
+      `DELETE FROM submissions
+       WHERE assignment_id = $1 AND group_id = $2 AND status = 'pending'
+       RETURNING id`,
       [assignmentId, groupId]
     );
 
-    if (existing.rows.length === 0 || existing.rows[0].status !== 'pending') {
+    if (deleted.rows.length === 0) {
       return res.status(409).json({ error: 'Can only cancel pending submission requests' });
     }
-
-    await query(
-      'DELETE FROM submissions WHERE assignment_id = $1 AND group_id = $2',
-      [assignmentId, groupId]
-    );
 
     return res.status(200).json({ message: 'Submission request cancelled' });
   })
@@ -516,6 +427,23 @@ router.get(
     const groupsData = [];
     const studentsData = [];
 
+    // Fetch members of every targeted group in one query (no per-group round trips)
+    const membersByGroup = new Map();
+    if (targetedGroupIds.length > 0) {
+      const allMembersRes = await query(
+        `SELECT gm.group_id, u.id, u.name, u.email, u.student_id AS "studentId"
+         FROM group_members gm
+         JOIN users u ON gm.user_id = u.id
+         WHERE gm.group_id = ANY($1::uuid[])
+         ORDER BY gm.joined_at ASC`,
+        [targetedGroupIds]
+      );
+      for (const row of allMembersRes.rows) {
+        if (!membersByGroup.has(row.group_id)) membersByGroup.set(row.group_id, []);
+        membersByGroup.get(row.group_id).push(row);
+      }
+    }
+
     for (const group of targetedGroups) {
       const sub = subMap.get(group.id);
       let status = 'not_submitted';
@@ -535,16 +463,7 @@ router.get(
       else notSubmittedCount++;
 
       // Members of this group
-      const membersRes = await query(
-        `SELECT u.id, u.name, u.email, u.student_id AS "studentId"
-         FROM group_members gm
-         JOIN users u ON gm.user_id = u.id
-         WHERE gm.group_id = $1
-         ORDER BY gm.joined_at ASC`,
-        [group.id]
-      );
-
-      const members = membersRes.rows.map(m => {
+      const members = (membersByGroup.get(group.id) || []).map(m => {
         const isConfirmer = m.id === confirmedById;
         const memberConfirmed = status === 'confirmed';
         return {

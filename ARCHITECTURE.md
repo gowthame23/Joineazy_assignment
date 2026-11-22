@@ -35,11 +35,11 @@ Submissions are stored **strictly per group** with a composite unique constraint
 
 ```mermaid
 stateDiagram-v2
-    [*] --> none : Assignment Targeted
-    none --> pending : POST /submission/request\n(Step 1: "Yes, I have submitted")
-    pending --> confirmed : POST /submission/confirm\n(Step 2: "Confirm submission")
-    pending --> none : DELETE /submission/request\n(Cancel pending request)
-    confirmed --> [*] : Locked (Read-Only)
+    [*] --> none : Assignment targeted
+    none --> pending : Step 1 - POST submission/request
+    pending --> confirmed : Step 2 - POST submission/confirm
+    pending --> none : DELETE submission/request (cancel)
+    confirmed --> [*] : Locked and read-only
 ```
 
 ### Invariants Enforced by the Server:
@@ -56,7 +56,7 @@ We use the native `pg` client with parameterised queries (`$1, $2, ...`) rather 
 
 ### Rationale
 - **Zero ORM cold-start latency**: On serverless Postgres (Neon) and container spin-ups, ORMs add noticeable schema-parsing delays.
-- **Explicit query control**: Precise control over SQL `JOIN`s, transaction blocks (`BEGIN` / `COMMIT`), and aggregation queries (`COUNT(DISTINCT ...)`) ensures maximum database performance.
+- **Explicit query control**: Precise control over SQL `JOIN`s, transaction blocks (`BEGIN` / `COMMIT`), and aggregation queries (shared set-based SQL in `backend/src/db/queries.js`) ensures maximum database performance.
 - **Injection safety**: Native parameterisation completely eliminates SQL injection risks.
 
 ---
@@ -68,5 +68,5 @@ Render free-tier web services spin down after 15 minutes of inactivity. The init
 
 ### Solution
 1. A global interceptor in `frontend/src/api/client.js` detects when an active in-flight request exceeds 3,000 milliseconds.
-2. It dispatches a custom window event (`joineazy:wake_state_change`) rendering a persistent top alert banner (`WakeBanner.jsx`) explaining the server spin-up process.
+2. It dispatches a custom window event (`joineazy:wake_state_change`) rendering a persistent top alert banner (the `WakeBanner` component in `frontend/src/components/ui.jsx`) explaining the server spin-up process.
 3. When the request resolves, the timer is cleared and the banner cleanly unmounts.

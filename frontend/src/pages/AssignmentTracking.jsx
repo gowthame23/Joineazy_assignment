@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../api/client';
-import { StatCard, Badge, ProgressBar, Spinner, Alert, Button } from '../components/ui';
+import { StatCard, Badge, Spinner, Alert } from '../components/ui';
 import {
   ArrowLeft,
   Calendar,
@@ -166,10 +166,12 @@ export function AssignmentTracking() {
         {/* View Tabs & Search Bar */}
         <div className="p-4 border-b border-line flex flex-col md:flex-row md:items-center justify-between gap-4">
           {/* Tabs */}
-          <div className="flex bg-canvas p-1 rounded border border-line">
+          <div role="tablist" aria-label="Tracking view" className="flex bg-canvas p-1 rounded border border-line">
             <button
               type="button"
-              onClick={() => setActiveTab('group')}
+              onClick={() => { setActiveTab('group'); if (statusFilter === 'no-group') setStatusFilter('all'); }}
+              role="tab"
+              aria-selected={activeTab === 'group'}
               className={`px-4 py-1.5 text-xs font-semibold rounded transition-colors ${
                 activeTab === 'group'
                   ? 'bg-surface text-ink shadow-subtle'
@@ -181,6 +183,8 @@ export function AssignmentTracking() {
             <button
               type="button"
               onClick={() => setActiveTab('student')}
+              role="tab"
+              aria-selected={activeTab === 'student'}
               className={`px-4 py-1.5 text-xs font-semibold rounded transition-colors ${
                 activeTab === 'student'
                   ? 'bg-surface text-ink shadow-subtle'
@@ -195,6 +199,7 @@ export function AssignmentTracking() {
           <div className="flex items-center gap-3">
             {/* Status Filter */}
             <select
+              aria-label="Filter by status"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="h-9 px-3 text-xs bg-white border border-line rounded text-text focus:outline-none focus:border-brand"
@@ -211,6 +216,7 @@ export function AssignmentTracking() {
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-text-3" />
               <input
                 type="text"
+                aria-label="Search"
                 placeholder={activeTab === 'group' ? 'Search group or student...' : 'Search student or ID...'}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}

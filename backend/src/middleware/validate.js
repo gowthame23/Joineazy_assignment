@@ -8,7 +8,7 @@ export const validateBody = (schema) => (req, res, next) => {
     next();
   } catch (err) {
     if (err instanceof z.ZodError) {
-      const issue = err.errors[0];
+      const issue = (err.issues || err.errors || [])[0];
       const message = issue ? `${issue.path.join('.')}: ${issue.message}` : 'Validation error';
       return res.status(400).json({ error: message });
     }

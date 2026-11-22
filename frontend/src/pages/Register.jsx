@@ -12,6 +12,7 @@ export function Register() {
   const [studentId, setStudentId] = useState('');
   const [adminCode, setAdminCode] = useState('');
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
 
   const { register } = useAuth();
@@ -21,22 +22,14 @@ export function Register() {
     e.preventDefault();
     setError('');
 
-    if (!name.trim()) {
-      setError('Please enter your full name.');
-      return;
-    }
-    if (!email.trim()) {
-      setError('Please enter your email address.');
-      return;
-    }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
-      return;
-    }
-    if (role === 'admin' && !adminCode.trim()) {
-      setError('Admin invite code is required to register as a professor.');
-      return;
-    }
+    const errs = {};
+    if (!name.trim()) errs.name = 'Please enter your full name.';
+    if (!email.trim()) errs.email = 'Please enter your email address.';
+    else if (!/^\S+@\S+\.\S+$/.test(email.trim())) errs.email = 'Enter a valid email address.';
+    if (password.length < 6) errs.password = 'Password must be at least 6 characters.';
+    if (role === 'admin' && !adminCode.trim()) errs.adminCode = 'Invite code is required to register as a professor.';
+    setFieldErrors(errs);
+    if (Object.keys(errs).length > 0) return;
 
     setIsLoading(true);
     try {
@@ -81,7 +74,8 @@ export function Register() {
           <div className="flex bg-canvas p-1 rounded border border-line mb-5">
             <button
               type="button"
-              onClick={() => setRole('student')}
+              onClick={() => { setRole('student'); setFieldErrors({}); }}
+              aria-pressed={role === 'student'}
               className={`flex-1 py-1.5 text-xs font-semibold rounded transition-colors ${
                 role === 'student'
                   ? 'bg-surface text-ink shadow-subtle'
@@ -92,7 +86,8 @@ export function Register() {
             </button>
             <button
               type="button"
-              onClick={() => setRole('admin')}
+              onClick={() => { setRole('admin'); setFieldErrors({}); }}
+              aria-pressed={role === 'admin'}
               className={`flex-1 py-1.5 text-xs font-semibold rounded transition-colors ${
                 role === 'admin'
                   ? 'bg-surface text-ink shadow-subtle'
@@ -103,12 +98,13 @@ export function Register() {
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} noValidate className="space-y-4">
             <Input
               label="Full Name"
               id="name"
               type="text"
-              required
+              autoComplete="name"
+              error={fieldErrors.name}
               placeholder={role === 'admin' ? 'Dr. Jane Smith' : 'Alex Johnson'}
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -118,7 +114,8 @@ export function Register() {
               label="Email address"
               id="email"
               type="email"
-              required
+              autoComplete="email"
+              error={fieldErrors.email}
               placeholder="alex@joineazy.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -128,7 +125,8 @@ export function Register() {
               label="Password (min 6 characters)"
               id="password"
               type="password"
-              required
+              autoComplete="new-password"
+              error={fieldErrors.password}
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -149,7 +147,8 @@ export function Register() {
                 label="Professor Invite Code"
                 id="adminCode"
                 type="password"
-                required
+                autoComplete="off"
+                error={fieldErrors.adminCode}
                 placeholder="Enter invite code"
                 helperText="Use demo code: joineazy-prof-2026"
                 value={adminCode}

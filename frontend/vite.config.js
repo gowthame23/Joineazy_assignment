@@ -6,5 +6,16 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true
-  }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // Keep the charting library in its own cacheable chunk so the app shell stays small
+        manualChunks: {
+          charts: ['recharts'],
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+        },
+      },
+    },
+  },
 });

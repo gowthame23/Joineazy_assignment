@@ -5,8 +5,14 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('joineazy_user');
-    return saved ? JSON.parse(saved) : null;
+    // A corrupted saved value must never crash the app on startup
+    try {
+      const saved = localStorage.getItem('joineazy_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      localStorage.removeItem('joineazy_user');
+      return null;
+    }
   });
   const [token, setToken] = useState(() => localStorage.getItem('joineazy_token'));
   const [loading, setLoading] = useState(true);

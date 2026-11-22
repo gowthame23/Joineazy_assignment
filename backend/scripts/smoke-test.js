@@ -80,7 +80,6 @@ async function runSmokeTests() {
       password: 'password123',
     });
     assert(student1Login.status === 200 && student1Login.data?.token, 'POST /api/auth/login succeeds for student1');
-    const student1Token = student1Login.data?.token;
 
     // 3. Register fresh student test accounts for clean workflow
     console.log('\n[3/7] Testing User Registration & Profile...');
@@ -94,7 +93,6 @@ async function runSmokeTests() {
     });
     assert(freshStudent1.status === 201 && freshStudent1.data?.token, 'POST /api/auth/register creates student account');
     const freshLeadToken = freshStudent1.data?.token;
-    const freshLeadId = freshStudent1.data?.user?.id;
 
     const freshStudent2 = await request('POST', '/api/auth/register', {
       name: 'Smoke Test Peer',
@@ -172,6 +170,30 @@ async function runSmokeTests() {
       analyticsRes.data?.totals?.groups > 0 &&
       analyticsRes.data?.groups?.length > 0,
       'GET /api/analytics returns complete system metrics and group breakdown'
+    );
+
+    // 8. Hardening regression checks
+    console.log('\n[8/8] Testing Input Hardening & Concurrency...');
+    for (const badLink of ['javascript:alert(1)', 'data:text/html,hi', 'file:///etc/passwd']) {
+      const badRes = await request(
+        'POST',
+        '/api/assignments',
+        { title: 'Bad link', dueDate: new Date(Date.now() + 86400000).toISOString(), oneDriveLink: badLink },
+        adminToken
+      );
+      assert(badRes.status === 400, `POST /api/assignments rejects non-http link (${badLink.split(':')[0]}:)`, JSON.stringify(badRes));
+    }
+
+    const raceEmail = `race_${Date.now()}@test.com`;
+    const raceResults = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        request('POST', '/api/auth/register', { name: 'Race', email: raceEmail, password: 'password123' })
+      )
+    );
+    assert(
+      raceResults.filter(r => r.status === 201).length === 1 && raceResults.every(r => r.status < 500),
+      'Simultaneous duplicate sign-ups yield one 201 and 409s (never a 500)',
+      raceResults.map(r => r.status).join(',')
     );
 
     console.log('\n=======================================');
