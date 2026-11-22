@@ -6,6 +6,7 @@ import { query } from '../db/pool.js';
 import { validateBody } from '../middleware/validate.js';
 import { requireAuth } from '../middleware/auth.js';
 import { asyncHandler } from '../utils/http.js';
+import { safeEqual } from '../utils/security.js';
 
 const router = express.Router();
 
@@ -23,6 +24,11 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+// bcrypt hash of a throw-away value, computed once at start-up. When a login uses an unknown email
+// we still run one bcrypt comparison against it, so "unknown email" and "wrong password" take the
+// same time and an attacker cannot use response timing to discover which emails are registered.
+const TIMING_EQUALISER_HASH = bcrypt.hashSync('timing-equaliser', 10);
+
 const generateToken = (user) => {
   return jwt.sign(
     { sub: user.id, role: user.role },
@@ -39,10 +45,12 @@ router.post(
     const { name, email, password, role, studentId, adminCode } = req.body;
     const normalizedEmail = email.toLowerCase();
 
-    // Verify admin code if registering as admin
+    // Verify admin code if registering as admin.
+    // Fail closed: when the server has no ADMIN_INVITE_CODE configured, professor sign-up is
+    // disabled entirely (there is deliberately no default code). The comparison is constant-time.
     if (role === 'admin') {
-      const requiredCode = process.env.ADMIN_INVITE_CODE || 'joineazy-prof-2026';
-      if (!adminCode || adminCode !== requiredCode) {
+      const requiredCode = process.env.ADMIN_INVITE_CODE;
+      if (!requiredCode || !adminCode || !safeEqual(adminCode, requiredCode)) {
         return res.status(403).json({ error: 'Invalid admin invite code' });
       }
     }
@@ -102,13 +110,9 @@ router.post(
       [normalizedEmail]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid email or password' });
-    }
-
     const user = result.rows[0];
-    const isMatch = await bcrypt.compare(password, user.password_hash);
-    if (!isMatch) {
+    const isMatch = await bcrypt.compare(password, user ? user.password_hash : TIMING_EQUALISER_HASH);
+    if (!user || !isMatch) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 

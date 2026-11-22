@@ -372,4 +372,6 @@ Returns `{ "groups": [ ... ] }`, every group with members and progress.
 | `403` | Wrong role, or action not allowed (e.g. not the leader, no group) |
 | `404` | Resource not found, or not targeted at the caller's group |
 | `409` | Conflict (duplicate email or student ID, already in a group, step order violated) |
+| `413` | Request body larger than the 100 kB limit |
+| `429` | Too many requests to `/api/auth` (100 per 15 minutes per IP) |
 | `500` | Unexpected server error (details are never leaked) |

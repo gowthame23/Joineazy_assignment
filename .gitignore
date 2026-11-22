@@ -34,3 +34,8 @@ lerna-debug.log*
 *.sw?
 .DS_Store
 Thumbs.db
+
+# Study and personal notes
+_study_guide/
+*.tmp
+*.bak

@@ -13,7 +13,8 @@ This document describes the security architecture and protective safeguards desi
 
 ## 2. Authorization & Role-Based Access Control (RBAC)
 - **Strict Role Isolation**: Route endpoints are guarded by `requireRole('student')` and `requireRole('admin')` middleware.
-- **Admin Passcode Guard**: Registering an account with `role: "admin"` requires providing a valid `adminCode` matching the server's `ADMIN_INVITE_CODE`.
+- **Admin Passcode Guard**: Registering an account with `role: "admin"` requires providing a valid `adminCode` matching the server's `ADMIN_INVITE_CODE`. The check fails closed (if the variable is unset, professor sign-up is disabled, there is no default code) and compares in constant time.
+- **Login Timing**: A login for an unknown email still performs one bcrypt comparison, so response time does not reveal which emails are registered.
 - **Group Leadership Rules**: Only the team leader can invite new members or dismiss other students. Regular members can only leave the group voluntarily.
 
 ---

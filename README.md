@@ -165,7 +165,7 @@ npm run dev
 | `DATABASE_URL` | PostgreSQL connection string (supports Neon `sslmode=require`) | `postgres://user:pass@ep-xyz.neon.tech/neondb?sslmode=require` |
 | `JWT_SECRET` | Secret key used to sign and verify JWT authentication tokens | `complex-random-secret-string` |
 | `JWT_EXPIRES_IN` | Token expiration lifespan | `7d` |
-| `ADMIN_INVITE_CODE`| Security passphrase required for professor registration | `joineazy-prof-2026` |
+| `ADMIN_INVITE_CODE`| Security passphrase required for professor registration. **If it is not set, professor sign-up is disabled** (there is no built-in default) | `joineazy-prof-2026` |
 | `CORS_ORIGIN` | Permitted frontend origin URL(s), comma-separated | `http://localhost:5173,https://my-app.vercel.app` |
 | `PORT` | HTTP server port | `4000` |
 
@@ -433,8 +433,8 @@ sequenceDiagram
 
 **Unit tests** (no database needed):
 ```bash
-cd backend && npm test      # HttpError, async handler, role guard, Zod and UUID validation, date helpers
-cd frontend && npm test     # date and deadline helpers
+cd backend && npm test      # 18 tests: role guard, Zod/UUID validation, error handling (400/404/413), fail-closed admin invite code, constant-time compare, date helpers
+cd frontend && npm test     # 5 tests: due-date wording on calendar-day boundaries, date formatting
 ```
 
 **End-to-end smoke test** (needs the backend running and seeded):

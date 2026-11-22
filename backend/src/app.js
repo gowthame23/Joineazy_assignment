@@ -79,6 +79,16 @@ app.use((err, req, res, next) => {
     return res.status(400).json({ error: 'Malformed JSON payload in request' });
   }
 
+  // Body larger than the 100kb limit set on express.json()
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request body is too large' });
+  }
+
+  // Other body-parser client errors (e.g. unsupported charset) carry a safe 4xx status
+  if (err.expose && err.status >= 400 && err.status < 500) {
+    return res.status(err.status).json({ error: err.message });
+  }
+
   // Database constraint races (e.g. two simultaneous sign-ups with the same email,
   // or two requests adding the same student to a group)
   if (err.code === '23505') {
