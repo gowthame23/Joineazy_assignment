@@ -4,11 +4,17 @@ import cors from 'cors';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 
+import authRoutes from './routes/auth.js';
+import groupRoutes from './routes/groups.js';
+import assignmentRoutes from './routes/assignments.js';
+import analyticsRoutes from './routes/analytics.js';
+import { HttpError } from './utils/http.js';
+
 const app = express();
 
 app.set('trust proxy', 1);
 
-// Security middleware
+// Security headers
 app.use(helmet());
 
 // CORS configuration
@@ -18,7 +24,6 @@ const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, curl, server-to-server)
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
       return callback(null, true);
@@ -30,12 +35,12 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// Request logging (skip in test if desired)
+// Request logging (skip during automated tests)
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('combined'));
 }
 
-// Body parser with 100kb limit
+// Request body parsing limited to 100kb
 app.use(express.json({ limit: '100kb' }));
 
 // Auth rate limiter: 100 requests per 15 minutes
@@ -47,9 +52,41 @@ export const authLimiter = rateLimit({
   message: { error: 'Too many requests from this IP, please try again after 15 minutes' },
 });
 
-// Health check endpoint (for uptime pinger, outside /api)
+// Uptime health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
+});
+
+// API Routes
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/groups', groupRoutes);
+app.use('/api/assignments', assignmentRoutes);
+app.use('/api/analytics', analyticsRoutes);
+
+// Catch-all 404 for undefined routes
+app.use((req, res) => {
+  res.status(404).json({ error: 'Endpoint not found' });
+});
+
+// Centralized error handling middleware
+app.use((err, req, res, next) => {
+  if (err instanceof HttpError) {
+    return res.status(err.status).json({ error: err.message });
+  }
+
+  // JSON parse error
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Malformed JSON payload in request' });
+  }
+
+  // CORS error
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({ error: 'Origin not allowed by CORS' });
+  }
+
+  // Internal unexpected errors (never leak database or internal stack traces)
+  console.error('Unhandled server error:', err);
+  return res.status(500).json({ error: 'An unexpected internal server error occurred' });
 });
 
 export default app;
