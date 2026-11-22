@@ -17,7 +17,6 @@ export function Layout({ children }) {
     <div className="min-h-screen bg-canvas flex flex-col font-sans">
       <WakeBanner />
 
-      {/* Navbar */}
       <header className="bg-ink text-white sticky top-0 z-40 shadow-sm border-b border-ink-soft">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link to="/dashboard" className="flex items-center gap-2.5 group">
@@ -62,12 +61,10 @@ export function Layout({ children }) {
         </div>
       </header>
 
-      {/* Main Content Area */}
       <main className="flex-1 max-w-[1200px] w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {children}
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-line bg-surface py-4 text-center text-xs text-white/70">
         <div className="max-w-[1200px] mx-auto px-4">
           Joineazy Assignment Management System &copy; {new Date().getFullYear()}

@@ -4,7 +4,6 @@ dotenv.config();
 import app from './app.js';
 import { runMigrations } from './db/migrate.js';
 
-// Environment variable validation
 const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
 const missingVars = requiredEnvVars.filter((varName) => !process.env[varName]);
 

@@ -51,7 +51,6 @@ router.get(
       return res.status(200).json({ assignments: result.rows });
     }
 
-    // Student view
     const memberRes = await query(
       'SELECT group_id FROM group_members WHERE user_id = $1',
       [userId]
@@ -108,7 +107,6 @@ router.post(
         return res.status(400).json({ error: 'You must select at least one group when not assigning to all.' });
       }
 
-      // Check all groupIds exist
       const checkGroups = await query(
         'SELECT id FROM groups WHERE id = ANY($1::uuid[])',
         [groupIds]
@@ -197,7 +195,6 @@ router.put(
       );
       const assignment = updateRes.rows[0];
 
-      // Update assignment_groups
       await client.query('DELETE FROM assignment_groups WHERE assignment_id = $1', [assignmentId]);
       if (!assignToAll && groupIds.length > 0) {
         for (const gId of groupIds) {
@@ -245,7 +242,6 @@ router.post(
     const assignmentId = req.params.id;
     const userId = req.user.id;
 
-    // Check student is in a group
     const memberRes = await query(
       'SELECT group_id FROM group_members WHERE user_id = $1',
       [userId]
@@ -255,7 +251,6 @@ router.post(
     }
     const groupId = memberRes.rows[0].group_id;
 
-    // Check assignment targets this group
     const targets = await assignmentTargetsGroup(assignmentId, groupId);
     if (!targets) {
       return res.status(404).json({ error: 'Assignment not found or not assigned to your group' });
@@ -292,7 +287,6 @@ router.post(
     const assignmentId = req.params.id;
     const userId = req.user.id;
 
-    // Check student has a group
     const memberRes = await query(
       'SELECT group_id FROM group_members WHERE user_id = $1',
       [userId]
@@ -302,7 +296,6 @@ router.post(
     }
     const groupId = memberRes.rows[0].group_id;
 
-    // Check assignment targets group
     const targets = await assignmentTargetsGroup(assignmentId, groupId);
     if (!targets) {
       return res.status(404).json({ error: 'Assignment not found or not assigned to your group' });
@@ -377,7 +370,6 @@ router.get(
   asyncHandler(async (req, res) => {
     const assignmentId = req.params.id;
 
-    // Fetch assignment
     const assignRes = await query(
       `SELECT id, title, description, due_date AS "dueDate", onedrive_link AS "oneDriveLink",
               assign_to_all AS "assignToAll", created_at AS "createdAt"
@@ -389,7 +381,6 @@ router.get(
     }
     const assignment = assignRes.rows[0];
 
-    // Find targeted groups
     let targetedGroupsRes;
     if (assignment.assignToAll) {
       targetedGroupsRes = await query('SELECT id, name FROM groups ORDER BY name ASC');
@@ -406,7 +397,6 @@ router.get(
     const targetedGroups = targetedGroupsRes.rows;
     const targetedGroupIds = targetedGroups.map(g => g.id);
 
-    // Fetch all submissions for this assignment
     const subRes = await query(
       `SELECT s.group_id, s.status, s.confirmed_at, s.confirmed_by, u.name AS confirmed_by_name
        FROM submissions s
@@ -419,7 +409,6 @@ router.get(
       subMap.set(s.group_id, s);
     }
 
-    // Build group breakdown
     let confirmedCount = 0;
     let pendingCount = 0;
     let notSubmittedCount = 0;
@@ -427,7 +416,6 @@ router.get(
     const groupsData = [];
     const studentsData = [];
 
-    // Fetch members of every targeted group in one query (no per-group round trips)
     const membersByGroup = new Map();
     if (targetedGroupIds.length > 0) {
       const allMembersRes = await query(
@@ -462,7 +450,6 @@ router.get(
       else if (status === 'pending') pendingCount++;
       else notSubmittedCount++;
 
-      // Members of this group
       const members = (membersByGroup.get(group.id) || []).map(m => {
         const isConfirmer = m.id === confirmedById;
         const memberConfirmed = status === 'confirmed';

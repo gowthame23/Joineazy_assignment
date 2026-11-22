@@ -70,7 +70,6 @@ export function Register() {
         <div className="bg-surface py-8 px-6 sm:px-10 rounded border border-line shadow-subtle">
           {error && <Alert variant="danger" message={error} className="mb-5" />}
 
-          {/* Role Segmented Toggle */}
           <div className="flex bg-canvas p-1 rounded border border-line mb-5">
             <button
               type="button"

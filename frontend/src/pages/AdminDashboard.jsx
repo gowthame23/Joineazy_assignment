@@ -36,7 +36,6 @@ export function AdminDashboard() {
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState({ text: '', type: 'success' });
 
-  // Assignment Modal (Create & Edit)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create'); // 'create' | 'edit'
   const [editingId, setEditingId] = useState(null);
@@ -53,7 +52,6 @@ export function AdminDashboard() {
   const [formError, setFormError] = useState('');
   const [formFieldErrors, setFormFieldErrors] = useState({});
 
-  // Delete modal confirmation
   const [deletingAssignment, setDeletingAssignment] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
@@ -203,7 +201,6 @@ export function AdminDashboard() {
     remaining: Math.max(0, a.targeted - a.confirmed),
   }));
 
-  // Recharts data for group performance
   const groupChartData = (analytics?.groups || []).map((g) => ({
     name: g.name,
     percent: g.percent,
@@ -211,7 +208,6 @@ export function AdminDashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Professor Dashboard</h1>
@@ -234,7 +230,6 @@ export function AdminDashboard() {
 
       {error && <Alert variant="danger" message={error} action="Retry" onAction={fetchData} />}
 
-      {/* KPI Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4">
         <StatCard
           label="Students"
@@ -269,9 +264,7 @@ export function AdminDashboard() {
         />
       </div>
 
-      {/* Analytics Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Assignment Submissions Chart */}
         <div className="bg-surface p-5 rounded border border-line shadow-subtle">
           <div className="mb-4">
             <h2 className="text-sm font-semibold text-text uppercase tracking-wide">
@@ -308,7 +301,6 @@ export function AdminDashboard() {
           )}
         </div>
 
-        {/* Group Performance Chart */}
         <div className="bg-surface p-5 rounded border border-line shadow-subtle">
           <div className="mb-4">
             <h2 className="text-sm font-semibold text-text uppercase tracking-wide">
@@ -345,7 +337,6 @@ export function AdminDashboard() {
         </div>
       </div>
 
-      {/* Assignments Table Section */}
       <section className="bg-surface rounded border border-line shadow-subtle overflow-hidden">
         <div className="p-5 border-b border-line flex items-center justify-between">
           <div>
@@ -442,7 +433,6 @@ export function AdminDashboard() {
         )}
       </section>
 
-      {/* Assignment Form Modal (Create / Edit) */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -498,7 +488,6 @@ export function AdminDashboard() {
             onChange={(e) => setFormData({ ...formData, oneDriveLink: e.target.value })}
           />
 
-          {/* Audience Selection */}
           <div className="space-y-2 pt-1">
             <label className="block text-sm font-medium text-text">Target Audience</label>
             <div className="flex gap-4 text-sm">
@@ -526,7 +515,6 @@ export function AdminDashboard() {
             </div>
           </div>
 
-          {/* Specific Groups Selector */}
           {!formData.assignToAll && (
             <div className="p-3 bg-canvas border border-line rounded space-y-2">
               {formFieldErrors.groups && <p className="text-xs text-danger">{formFieldErrors.groups}</p>}
@@ -584,7 +572,6 @@ export function AdminDashboard() {
         </form>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
       <Modal
         isOpen={Boolean(deletingAssignment)}
         onClose={() => setDeletingAssignment(null)}

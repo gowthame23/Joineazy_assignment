@@ -24,9 +24,7 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
-// bcrypt hash of a throw-away value, computed once at start-up. When a login uses an unknown email
-// we still run one bcrypt comparison against it, so "unknown email" and "wrong password" take the
-// same time and an attacker cannot use response timing to discover which emails are registered.
+// compared against when the email is unknown, so login timing doesn't reveal which emails exist
 const TIMING_EQUALISER_HASH = bcrypt.hashSync('timing-equaliser', 10);
 
 const generateToken = (user) => {
@@ -45,9 +43,7 @@ router.post(
     const { name, email, password, role, studentId, adminCode } = req.body;
     const normalizedEmail = email.toLowerCase();
 
-    // Verify admin code if registering as admin.
-    // Fail closed: when the server has no ADMIN_INVITE_CODE configured, professor sign-up is
-    // disabled entirely (there is deliberately no default code). The comparison is constant-time.
+    // no ADMIN_INVITE_CODE configured = professor sign-up disabled
     if (role === 'admin') {
       const requiredCode = process.env.ADMIN_INVITE_CODE;
       if (!requiredCode || !adminCode || !safeEqual(adminCode, requiredCode)) {
@@ -55,13 +51,11 @@ router.post(
       }
     }
 
-    // Check email uniqueness
     const existingEmail = await query('SELECT id FROM users WHERE email = $1', [normalizedEmail]);
     if (existingEmail.rows.length > 0) {
       return res.status(409).json({ error: 'An account with this email already exists' });
     }
 
-    // If student, validate studentId uniqueness if supplied
     const normalizedStudentId = role === 'student' && studentId ? studentId.trim() : null;
     if (normalizedStudentId) {
       const existingStudentId = await query('SELECT id FROM users WHERE student_id = $1', [normalizedStudentId]);
@@ -70,7 +64,6 @@ router.post(
       }
     }
 
-    // Hash password with bcrypt cost 10
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
@@ -131,7 +124,6 @@ router.post(
   })
 );
 
-// GET /api/auth/me
 router.get(
   '/me',
   requireAuth,

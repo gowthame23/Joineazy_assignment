@@ -14,10 +14,8 @@ const app = express();
 
 app.set('trust proxy', 1);
 
-// Security headers
 app.use(helmet());
 
-// CORS configuration
 const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
   .split(',')
   .map(origin => origin.trim().replace(/\/$/, ''));
@@ -35,15 +33,12 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// Request logging (skip during automated tests)
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('combined'));
 }
 
-// Request body parsing limited to 100kb
 app.use(express.json({ limit: '100kb' }));
 
-// Auth rate limiter: 100 requests per 15 minutes
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -52,29 +47,24 @@ export const authLimiter = rateLimit({
   message: { error: 'Too many requests from this IP, please try again after 15 minutes' },
 });
 
-// Uptime health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-// API Routes
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
-// Catch-all 404 for undefined routes
 app.use((req, res) => {
   res.status(404).json({ error: 'Endpoint not found' });
 });
 
-// Centralized error handling middleware
 app.use((err, req, res, next) => {
   if (err instanceof HttpError) {
     return res.status(err.status).json({ error: err.message });
   }
 
-  // JSON parse error
   if (err.type === 'entity.parse.failed') {
     return res.status(400).json({ error: 'Malformed JSON payload in request' });
   }
@@ -98,7 +88,6 @@ app.use((err, req, res, next) => {
     return res.status(400).json({ error: 'Invalid reference or value in request' });
   }
 
-  // CORS error
   if (err.message === 'Not allowed by CORS') {
     return res.status(403).json({ error: 'Origin not allowed by CORS' });
   }

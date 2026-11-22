@@ -1,8 +1,4 @@
-/**
- * End-to-End API Smoke Test Script
- * Verifies all critical paths: Health, Auth, Roles, Groups, Assignments CRUD,
- * Two-Step Submission Verification, and Analytics.
- */
+// End-to-end checks against a running API with seeded data: npm run test:smoke
 
 const API_BASE = process.env.API_URL || 'http://localhost:4000';
 
@@ -66,7 +62,6 @@ async function runSmokeTests() {
     });
     assert(invalidAdmin.status === 403, 'POST /api/auth/register rejects admin without correct invite code (403)');
 
-    // Login with seeded admin
     const adminLogin = await request('POST', '/api/auth/login', {
       email: 'professor@joineazy.com',
       password: 'password123',
@@ -74,7 +69,6 @@ async function runSmokeTests() {
     assert(adminLogin.status === 200 && adminLogin.data?.token, 'POST /api/auth/login succeeds for seeded admin');
     const adminToken = adminLogin.data?.token;
 
-    // Login with seeded student 1
     const student1Login = await request('POST', '/api/auth/login', {
       email: 'student1@joineazy.com',
       password: 'password123',
@@ -103,7 +97,6 @@ async function runSmokeTests() {
     });
     assert(freshStudent2.status === 201, 'POST /api/auth/register creates second student account');
 
-    // GET /api/auth/me
     const meRes = await request('GET', '/api/auth/me', null, freshLeadToken);
     assert(meRes.status === 200 && meRes.data?.user?.email === `lead_${uniqueId}@test.com`, 'GET /api/auth/me returns authenticated user details');
 
@@ -113,7 +106,6 @@ async function runSmokeTests() {
     assert(groupRes.status === 201 && groupRes.data?.group?.name === `Team Delta ${uniqueId}`, 'POST /api/groups creates a new group');
     const groupId = groupRes.data?.group?.id;
 
-    // Add member by student ID
     const addMemberRes = await request('POST', '/api/groups/me/members', { identifier: `ST_${uniqueId}B` }, freshLeadToken);
     assert(addMemberRes.status === 201 && addMemberRes.data?.group?.members?.length === 2, 'POST /api/groups/me/members adds student by studentId');
 
@@ -130,7 +122,6 @@ async function runSmokeTests() {
     assert(createAssignRes.status === 201, 'POST /api/assignments creates assignment with group targeting');
     const assignmentId = createAssignRes.data?.assignment?.id;
 
-    // Student view of assignments
     const studentAssignRes = await request('GET', '/api/assignments', null, freshLeadToken);
     const found = studentAssignRes.data?.assignments?.find(a => a.id === assignmentId);
     assert(studentAssignRes.status === 200 && found, 'GET /api/assignments returns targeted assignment for student');
@@ -196,10 +187,7 @@ async function runSmokeTests() {
       raceResults.map(r => r.status).join(',')
     );
 
-    console.log('\n=======================================');
-    console.log(`Smoke Tests Complete!`);
-    console.log(`Passed: ${testPassed} | Failed: ${testFailed}`);
-    console.log('=======================================\n');
+    console.log(`\nPassed: ${testPassed}, failed: ${testFailed}`);
 
     if (testFailed > 0) {
       process.exit(1);

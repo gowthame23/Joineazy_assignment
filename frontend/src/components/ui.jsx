@@ -2,7 +2,6 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { Loader2, AlertCircle, CheckCircle2, AlertTriangle, X } from 'lucide-react';
 import { WAKE_EVENT } from '../api/client';
 
-// 1. Button Component
 export function Button({
   children,
   variant = 'primary',
@@ -43,7 +42,6 @@ export function Button({
   );
 }
 
-// 2. Input Component
 export function Input({
   label,
   id,
@@ -75,7 +73,6 @@ export function Input({
   );
 }
 
-// 3. Status Badge Component
 export function Badge({ status, text, className = '' }) {
   const config = {
     submitted: {
@@ -120,7 +117,6 @@ export function Badge({ status, text, className = '' }) {
   );
 }
 
-// 4. Progress Bar Component
 export function ProgressBar({ current, total, showLabel = true, className = '' }) {
   const percent = total > 0 ? Math.min(100, Math.round((current / total) * 100)) : 0;
   const isComplete = percent === 100;
@@ -151,7 +147,6 @@ export function ProgressBar({ current, total, showLabel = true, className = '' }
   );
 }
 
-// 5. Spinner Loader
 export function Spinner({ size = 'md', className = '' }) {
   const sizes = {
     sm: 'w-4 h-4',
@@ -166,7 +161,6 @@ export function Spinner({ size = 'md', className = '' }) {
   );
 }
 
-// 6. Alert Component
 export function Alert({ variant = 'danger', message, action, onAction, className = '' }) {
   const styles = {
     danger: 'bg-danger-tint border-danger/30 text-danger',
@@ -203,7 +197,6 @@ export function Alert({ variant = 'danger', message, action, onAction, className
   );
 }
 
-// 7. Modal Component
 // Centred dialog on >=640px, bottom sheet on phones. Closes on Esc and overlay click.
 // Moves focus into the dialog on open, keeps Tab inside it, restores focus on close.
 const FOCUSABLE =
@@ -292,7 +285,6 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'max-w-md' 
   );
 }
 
-// 8. WakeBanner Component
 export function WakeBanner() {
   const [isWaking, setIsWaking] = useState(false);
 
@@ -314,7 +306,6 @@ export function WakeBanner() {
   );
 }
 
-// 9. StatCard Component
 export function StatCard({ label, value, subtitle, icon: Icon, className = '' }) {
   return (
     <div className={`bg-surface p-5 rounded border border-line shadow-subtle ${className}`}>

@@ -89,7 +89,6 @@ router.post(
     const { name } = req.body;
     const userId = req.user.id;
 
-    // Check if already in a group
     const memberCheck = await query(
       'SELECT group_id FROM group_members WHERE user_id = $1',
       [userId]
@@ -156,7 +155,6 @@ router.post(
     const { identifier } = req.body;
     const userId = req.user.id;
 
-    // Verify caller is in a group and is leader
     const groupRes = await query(
       `SELECT g.id, g.leader_id
        FROM groups g
@@ -174,7 +172,6 @@ router.post(
       return res.status(403).json({ error: 'Only the group leader can invite or add members' });
     }
 
-    // Lookup target user by email or student_id
     const targetRes = await query(
       `SELECT id, name, email, student_id, role
        FROM users
@@ -188,7 +185,6 @@ router.post(
 
     const targetUser = targetRes.rows[0];
 
-    // Check if target is already in any group
     const targetGroupCheck = await query(
       'SELECT group_id FROM group_members WHERE user_id = $1',
       [targetUser.id]
@@ -197,7 +193,6 @@ router.post(
       return res.status(409).json({ error: 'This student is already in a group' });
     }
 
-    // Add target to group
     await query(
       'INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)',
       [group.id, targetUser.id]
@@ -218,7 +213,6 @@ router.delete(
     const targetUserId = req.params.userId;
     const currentUserId = req.user.id;
 
-    // Find current user's group
     const callerGroupRes = await query(
       'SELECT group_id FROM group_members WHERE user_id = $1',
       [currentUserId]
@@ -228,7 +222,6 @@ router.delete(
     }
     const groupId = callerGroupRes.rows[0].group_id;
 
-    // Check target is in the same group
     const targetCheck = await query(
       'SELECT group_id FROM group_members WHERE group_id = $1 AND user_id = $2',
       [groupId, targetUserId]
@@ -237,7 +230,6 @@ router.delete(
       return res.status(404).json({ error: 'User is not a member of your group' });
     }
 
-    // Check leadership permissions
     const groupMeta = await query('SELECT leader_id FROM groups WHERE id = $1', [groupId]);
     const leaderId = groupMeta.rows[0].leader_id;
 
@@ -252,20 +244,17 @@ router.delete(
     try {
       await client.query('BEGIN');
 
-      // Remove member
       await client.query(
         'DELETE FROM group_members WHERE group_id = $1 AND user_id = $2',
         [groupId, targetUserId]
       );
 
-      // Check remaining members
       const remainingRes = await client.query(
         'SELECT user_id FROM group_members WHERE group_id = $1 ORDER BY joined_at ASC',
         [groupId]
       );
 
       if (remainingRes.rows.length === 0) {
-        // Group is now empty, delete group
         await client.query('DELETE FROM groups WHERE id = $1', [groupId]);
         await client.query('COMMIT');
         return res.status(200).json({ group: null });

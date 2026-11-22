@@ -1,6 +1,6 @@
 # Joineazy LMS - REST API Specification
 
-Comprehensive documentation of all backend REST endpoints, payload schemas, and response formats.
+All backend endpoints with their request bodies and responses.
 
 ---
 

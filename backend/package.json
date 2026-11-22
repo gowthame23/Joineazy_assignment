@@ -12,7 +12,6 @@
     "seed": "node src/db/seed.js",
     "test:smoke": "node scripts/smoke-test.js",
     "db:reset": "node scripts/reset-db.js",
-    "verify:env": "node scripts/verify-env.js",
     "lint": "eslint --ext .js src scripts tests"
   },
   "dependencies": {

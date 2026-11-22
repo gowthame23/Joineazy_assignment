@@ -95,7 +95,6 @@ export function Login() {
             </Button>
           </form>
 
-          {/* Quick Demo Credentials */}
           <div className="mt-6 pt-5 border-t border-line text-xs">
             <p className="font-semibold text-text-2 mb-2">Quick Demo Accounts:</p>
             <div className="grid grid-cols-2 gap-2">

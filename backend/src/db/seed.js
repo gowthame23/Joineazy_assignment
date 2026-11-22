@@ -59,7 +59,6 @@ export async function seedDatabase() {
     const groupMap = {};
 
     for (const g of groupDefs) {
-      // Find existing group by name or create
       let gRes = await client.query(`SELECT id FROM groups WHERE name = $1`, [g.name]);
       let groupId;
       if (gRes.rows.length > 0) {
@@ -85,7 +84,6 @@ export async function seedDatabase() {
     }
 
     // 4. Seed Assignments
-    // Now timestamps:
     const now = new Date();
     const overdueDate = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000);
     const due4Days = new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000);
@@ -147,7 +145,6 @@ export async function seedDatabase() {
       }
       assignmentIds.push(aId);
 
-      // Targeted groups if assignToAll is false
       if (!a.assignToAll && a.targetedGroups.length > 0) {
         await client.query(`DELETE FROM assignment_groups WHERE assignment_id = $1`, [aId]);
         for (const gId of a.targetedGroups) {

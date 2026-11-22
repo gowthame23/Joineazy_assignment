@@ -17,7 +17,6 @@ function PublicOnlyRoute({ children }) {
   return children;
 }
 
-// Role-based Dashboard Switcher
 function DashboardSwitcher() {
   const { user } = useAuth();
   return user?.role === 'admin' ? <AdminDashboard /> : <StudentDashboard />;
@@ -28,7 +27,6 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public Authentication Routes */}
           <Route
             path="/login"
             element={
@@ -46,7 +44,6 @@ export default function App() {
             }
           />
 
-          {/* Protected Routes */}
           <Route
             path="/dashboard"
             element={
@@ -58,7 +55,6 @@ export default function App() {
             }
           />
 
-          {/* Admin Assignment Tracking */}
           <Route
             path="/assignments/:id"
             element={
@@ -70,7 +66,6 @@ export default function App() {
             }
           />
 
-          {/* Fallback */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>

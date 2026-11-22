@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import { Button, Input, Badge, ProgressBar, Spinner, Alert, Modal } from '../components/ui';
-import { formatRelativeDueDate } from '../utils/date';
+import { formatRelativeDueDate, formatDateTime } from '../utils/date';
 import { Users, ExternalLink, UserPlus, Trash2, CheckCircle2, Calendar, LogOut } from 'lucide-react';
 
 export function StudentDashboard() {
@@ -15,13 +15,11 @@ export function StudentDashboard() {
   const [error, setError] = useState('');
   const [actionMessage, setActionMessage] = useState({ text: '', type: 'success' });
 
-  // Group form states
   const [newGroupName, setNewGroupName] = useState('');
   const [createGroupLoading, setCreateGroupLoading] = useState(false);
   const [newMemberIdentifier, setNewMemberIdentifier] = useState('');
   const [addMemberLoading, setAddMemberLoading] = useState(false);
 
-  // Two-step submission modal states
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [modalStep, setModalStep] = useState(1); // 1 or 2
   const [submittingStep, setSubmittingStep] = useState(false);
@@ -49,7 +47,6 @@ export function StudentDashboard() {
     fetchData();
   }, []);
 
-  // Create Group
   const handleCreateGroup = async (e) => {
     e.preventDefault();
     if (!newGroupName.trim()) return;
@@ -70,7 +67,6 @@ export function StudentDashboard() {
     }
   };
 
-  // Add Member
   const handleAddMember = async (e) => {
     e.preventDefault();
     if (!newMemberIdentifier.trim()) return;
@@ -91,7 +87,6 @@ export function StudentDashboard() {
     }
   };
 
-  // Remove or Leave Group
   const handleRemoveMember = async (targetUserId, isSelf) => {
     const confirmPrompt = isSelf
       ? 'Are you sure you want to leave this group?'
@@ -114,7 +109,6 @@ export function StudentDashboard() {
     }
   };
 
-  // Two-step Confirmation Workflow
   const openSubmitModal = (assignment, step = 1) => {
     setSelectedAssignment(assignment);
     setModalStep(step);
@@ -180,7 +174,6 @@ export function StudentDashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Welcome Header */}
       <div>
         <h1 className="text-2xl font-semibold text-ink">Welcome, {user?.name}</h1>
         <p className="text-sm text-text-2 mt-1">
@@ -198,7 +191,6 @@ export function StudentDashboard() {
 
       {error && <Alert variant="danger" message={error} action="Retry" onAction={fetchData} />}
 
-      {/* Group Card Section */}
       <section className="bg-surface rounded border border-line p-5 shadow-subtle">
         <div className="flex items-center justify-between pb-4 border-b border-line mb-4">
           <div className="flex items-center gap-2.5">
@@ -238,7 +230,6 @@ export function StudentDashboard() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Group Progress Bar */}
             <div className="bg-canvas p-4 rounded border border-line">
               <div className="flex justify-between items-center mb-1.5 text-xs font-semibold uppercase tracking-wider text-text-3">
                 <span>Group Completion Progress</span>
@@ -250,7 +241,6 @@ export function StudentDashboard() {
               />
             </div>
 
-            {/* Members List */}
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-text-3 mb-2.5">
                 Team Members
@@ -312,7 +302,6 @@ export function StudentDashboard() {
               </div>
             </div>
 
-            {/* Add Member (Leader Only) */}
             {isLeader && (
               <div className="pt-2">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-text-3 mb-2">
@@ -343,7 +332,6 @@ export function StudentDashboard() {
         )}
       </section>
 
-      {/* Assignments Section */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-text">Course Assignments</h2>
@@ -390,7 +378,7 @@ export function StudentDashboard() {
 
                     <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-text-2 pt-1">
                       <Calendar className="w-3.5 h-3.5 text-text-3" />
-                      <span>Due: {dueDate.toLocaleDateString()} {dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span>Due: {formatDateTime(assignment.dueDate)}</span>
                       <span className={`font-medium ${isOverdue && subStatus !== 'confirmed' ? 'text-danger' : 'text-text'}`}>
                         ({formatRelativeDueDate(assignment.dueDate)})
                       </span>
@@ -398,7 +386,6 @@ export function StudentDashboard() {
                   </div>
 
                   <div className="pt-3 border-t border-line space-y-3">
-                    {/* OneDrive Button */}
                     <a
                       href={assignment.oneDriveLink}
                       target="_blank"
@@ -408,7 +395,6 @@ export function StudentDashboard() {
                       <ExternalLink className="w-4 h-4" /> Open OneDrive
                     </a>
 
-                    {/* Submission Action */}
                     <div>
                       {!hasGroup ? (
                         <div className="text-xs text-text-3 bg-canvas p-2 rounded border border-line">
@@ -461,7 +447,6 @@ export function StudentDashboard() {
         )}
       </section>
 
-      {/* Two-Step Verification Modal */}
       <Modal
         isOpen={Boolean(selectedAssignment)}
         onClose={closeSubmitModal}
@@ -469,7 +454,6 @@ export function StudentDashboard() {
       >
         {selectedAssignment && (
           <div className="space-y-5">
-            {/* Step Indicator */}
             <div className="flex items-center justify-between pb-3 border-b border-line text-xs">
               <span className="font-semibold text-brand">
                 Step {modalStep} of 2

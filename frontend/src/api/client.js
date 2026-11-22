@@ -1,4 +1,3 @@
-// Custom event for waking banner
 export const WAKE_EVENT = 'joineazy:wake_state_change';
 
 let activeRequests = 0;

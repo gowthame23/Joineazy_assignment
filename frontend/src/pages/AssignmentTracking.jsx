@@ -68,7 +68,6 @@ export function AssignmentTracking() {
   const dueDate = new Date(assignment.dueDate);
   const isOverdue = dueDate < new Date();
 
-  // Filter groups
   const filteredGroups = groups.filter((g) => {
     const matchesSearch = g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       g.members.some(m => m.name.toLowerCase().includes(searchQuery.toLowerCase()) || m.email.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -76,7 +75,6 @@ export function AssignmentTracking() {
     return matchesSearch && matchesStatus;
   });
 
-  // Filter students
   const filteredStudents = students.filter((s) => {
     const matchesSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -88,7 +86,6 @@ export function AssignmentTracking() {
 
   return (
     <div className="space-y-6">
-      {/* Back Link & Header */}
       <div>
         <Link
           to="/dashboard"
@@ -126,14 +123,12 @@ export function AssignmentTracking() {
         </div>
       </div>
 
-      {/* Due Date & Deadline Banner */}
       <div className="flex items-center gap-2 text-xs text-text-2 bg-surface p-3 rounded border border-line">
         <Calendar className="w-4 h-4 text-text-3" />
         <span>Due Date: <strong>{dueDate.toLocaleDateString()}</strong> at {dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
         {isOverdue && <Badge status="overdue" text="Deadline Passed" className="ml-2" />}
       </div>
 
-      {/* KPI Cards Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Confirmed"
@@ -161,11 +156,8 @@ export function AssignmentTracking() {
         />
       </div>
 
-      {/* Main Tracking Table Card */}
       <div className="bg-surface rounded border border-line shadow-subtle overflow-hidden">
-        {/* View Tabs & Search Bar */}
         <div className="p-4 border-b border-line flex flex-col md:flex-row md:items-center justify-between gap-4">
-          {/* Tabs */}
           <div role="tablist" aria-label="Tracking view" className="flex bg-canvas p-1 rounded border border-line">
             <button
               type="button"
@@ -195,9 +187,7 @@ export function AssignmentTracking() {
             </button>
           </div>
 
-          {/* Search & Status Filters */}
           <div className="flex items-center gap-3">
-            {/* Status Filter */}
             <select
               aria-label="Filter by status"
               value={statusFilter}
@@ -211,7 +201,6 @@ export function AssignmentTracking() {
               {activeTab === 'student' && <option value="no-group">No group</option>}
             </select>
 
-            {/* Search Input */}
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-text-3" />
               <input
@@ -226,7 +215,6 @@ export function AssignmentTracking() {
           </div>
         </div>
 
-        {/* Tab 1: Group-wise View */}
         {activeTab === 'group' && (
           <div className="divide-y divide-line">
             {filteredGroups.length === 0 ? (
@@ -273,7 +261,6 @@ export function AssignmentTracking() {
                       </div>
                     </div>
 
-                    {/* Expandable Group Members */}
                     {isExpanded && (
                       <div className="mt-3 pl-8 pt-2 border-t border-line/60">
                         <div className="text-xs font-semibold text-text-3 uppercase tracking-wider mb-2">
@@ -306,7 +293,6 @@ export function AssignmentTracking() {
           </div>
         )}
 
-        {/* Tab 2: Student-wise View */}
         {activeTab === 'student' && (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
