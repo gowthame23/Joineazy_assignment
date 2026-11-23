@@ -4,6 +4,13 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import { Button, Input, Alert } from '../components/ui';
 
+const DEMO_ACCOUNTS = [
+  { label: 'Professor', email: 'professor@joineazy.com' },
+  { label: 'Student (team leader)', email: 'student1@joineazy.com' },
+  { label: 'Student (team member)', email: 'student2@joineazy.com' },
+  { label: 'Student (no group)', email: 'student7@joineazy.com' },
+];
+
 export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -98,23 +105,17 @@ export function Login() {
           <div className="mt-6 pt-5 border-t border-line text-xs">
             <p className="font-semibold text-text-2 mb-2">Quick Demo Accounts:</p>
             <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleFillDemo('professor@joineazy.com')}
-                className="p-2 border border-line rounded text-left hover:bg-canvas transition-colors"
-              >
-                <div className="font-semibold text-brand">Professor</div>
-                <div className="text-[11px] text-text-3 truncate">professor@joineazy.com</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleFillDemo('student1@joineazy.com')}
-                className="p-2 border border-line rounded text-left hover:bg-canvas transition-colors"
-              >
-                <div className="font-semibold text-brand">Student 1 (Alpha)</div>
-                <div className="text-[11px] text-text-3 truncate">student1@joineazy.com</div>
-              </button>
+              {DEMO_ACCOUNTS.map((account) => (
+                <button
+                  key={account.email}
+                  type="button"
+                  onClick={() => handleFillDemo(account.email)}
+                  className="p-2 border border-line rounded text-left hover:bg-canvas transition-colors"
+                >
+                  <div className="font-semibold text-brand">{account.label}</div>
+                  <div className="text-[11px] text-text-3 truncate">{account.email}</div>
+                </button>
+              ))}
             </div>
             <p className="text-[11px] text-text-3 mt-1.5 text-center">Default password: password123</p>
           </div>
