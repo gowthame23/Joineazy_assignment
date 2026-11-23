@@ -400,6 +400,8 @@ stateDiagram-v2
 
 ### Known limitations
 
+- Student sign-up is open and not verified, so fake accounts or groups could skew the analytics. A real deployment would add a class join code or university email verification, and import the official roster so Student IDs are checked.
+- Any professor can edit or delete any assignment, and the demo credentials are public so reviewers can test the app. A real deployment would check ownership (`created_by` is already stored) and have an admin create professor accounts instead of a shared invite code.
 - JWTs are stored in `localStorage` and can't be revoked before they expire (7 days).
 - The leader adds members directly. There is no invite-and-accept flow.
 - The app can't check that files were actually uploaded to OneDrive. Confirmation is the group's declaration.
