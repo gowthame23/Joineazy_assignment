@@ -223,7 +223,7 @@ export function StudentDashboard() {
                 onChange={(e) => setNewGroupName(e.target.value)}
                 required
               />
-              <Button type="submit" variant="primary" isLoading={createGroupLoading}>
+              <Button type="submit" variant="primary" isLoading={createGroupLoading} className="shrink-0 whitespace-nowrap">
                 Create Group
               </Button>
             </form>
