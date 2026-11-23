@@ -23,7 +23,7 @@ export async function seedDatabase() {
     );
     const profId = profRes.rows[0].id;
 
-    // 2. Seed 6 Students
+    // 2. Seed 7 Students (student7 is left without a group)
     const studentIds = [];
     const studentData = [
       { name: 'Alice Smith', email: 'student1@joineazy.com', studentId: 'STU1001' },
@@ -32,6 +32,7 @@ export async function seedDatabase() {
       { name: 'Diana Prince', email: 'student4@joineazy.com', studentId: 'STU1004' },
       { name: 'Evan Wright', email: 'student5@joineazy.com', studentId: 'STU1005' },
       { name: 'Fiona Gallagher', email: 'student6@joineazy.com', studentId: 'STU1006' },
+      { name: 'George Miller', email: 'student7@joineazy.com', studentId: 'STU1007' },
     ];
 
     for (const s of studentData) {

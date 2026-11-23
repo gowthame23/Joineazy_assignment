@@ -156,6 +156,7 @@ All passwords are `password123`. The professor invite code for new admin sign-up
 | Student | student4@joineazy.com | Team Beta | STU1004 |
 | Student | student5@joineazy.com | Team Gamma (leader) | STU1005 |
 | Student | student6@joineazy.com | Team Gamma | STU1006 |
+| Student | student7@joineazy.com | No group (use it to try creating a group) | STU1007 |
 
 The seed also creates 4 assignments (one overdue, one for specific groups only) and a few pending and confirmed submissions, so the dashboards and charts have data.
 
